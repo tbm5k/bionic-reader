@@ -1,31 +1,27 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"os"
-	"log"
-	"bufio"
+	"github.com/dslipak/pdf"
 )
 
 
 func main() {
-	fmt.Println("Weuh")
-
-	f, err := os.Open("sample.txt")
+	r, err := pdf.Open("sample.pdf")
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	defer f.Close()
+	b, err := r.GetPlainText()
 
-	scanner := bufio.NewScanner(f)
-
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
+	if err != nil {
+		panic(err)
 	}
 
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
+	var buf bytes.Buffer
+	buf.ReadFrom(b)
+
+	fmt.Println(buf.String())
 }
