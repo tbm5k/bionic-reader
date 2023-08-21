@@ -33,7 +33,7 @@ func init() {
 }
 
 func main() {
-	inputPath  := "sample.pdf"
+	inputPath  := "samplepdf.pdf"
 	outputPath := "parsed.pdf"
 
 	err := makeTextBold(inputPath, outputPath)
@@ -42,7 +42,7 @@ func main() {
 	}
 }
 
-func makeTextBold(inputPath, outputPath string) error {
+func makeTextBold(inputPath string, outputPath string) error {
 	file, err := os.Open(inputPath)
 	if err != nil {
 		log.Println(err)
@@ -65,7 +65,17 @@ func makeTextBold(inputPath, outputPath string) error {
 			log.Println(err)
 			return err
 		}
+        contentStream, err := page.GetContentStreams()
+		if err != nil {
+			return err
+		}
 
+        var content []byte
+        for _, stream := range contentStream {
+            content = append(content, stream...)
+        }
+
+        modifiedContent := strings.Replace(content, string('e'), fmt.Sprintf("<b>%c</b>", 'e'), -1)
 		// extracts the page
 		ext, err := extractor.New(page)
 		if err != nil {
@@ -90,27 +100,42 @@ func makeTextBold(inputPath, outputPath string) error {
 		// lib uses textMarks to write the new pdf
 
 		marks := pageText.Marks()
-		for _, mark := range marks.Elements() {
+        fmt.Println(pageText.String())
+
+		for index, mark := range marks.Elements() {
 			if mark.Font == nil {
 				continue
 			}
 
-			fmt.Printf("%s => after passing through formatting function\n",formatFirstThree(mark.Text))
+            /*
+                1. Mark the first letter as the first index of the word
+                2. get the previous letter, store the horizontal coordinates with it
+                3. get the current letter and do as step 1
+                4. compare the horizontal dimensions
+                5. if the horizontal distance is greater than normal, get the 
+                distance from the inital first index of the word 
+                doing some operation to mark the first 30% letters of the word
+            */
 
-			mark.Text = formatFirstThree(mark.Text)
+            if index > 0 {
+                fmt.Println("letter: ", marks.Elements()[index - 1].Text)
+            }
+
+			fmt.Printf("%s => after passing through formatting function\n",formatLetter(mark.Text))
+
+			mark.Text = formatLetter(mark.Text)
 
 			para := cre.NewParagraph(mark.Original)
 			para.SetFont(mark.Font)
-			para.SetFontSize(14)
-
-			r, g, b, _ := mark.StrokeColor.RGBA()
-			rf, gf, bf := float64(r)/0xffff, float64(g)/0xffff, float64(b)/0xffff
-			para.SetColor(creator.ColorRGBFromArithmetic(rf, gf, bf))
-
-			// Convert to PDF coordinate system.
+            para.SetColor(creator.ColorRGBFromHex("#000"))
+		
+            // Convert to PDF coordinate system.
 			yPos := cre.Context().PageHeight - (mark.BBox.Lly + mark.BBox.Height())
 			para.SetPos(mark.BBox.Llx, yPos) // Upper left corner.
-			cre.Draw(para)
+            err := cre.Draw(para)
+            if err != nil {
+                return err
+            }
 		}
 
 	}
@@ -119,14 +144,16 @@ func makeTextBold(inputPath, outputPath string) error {
 
 
 // helper function that should make every three letters bold
-func formatFirstThree(text string) string {
-	words := strings.Fields(text)
-
-	for i, word := range words {
-		if len(word) > 2 {
-			words[i] = "<b>" + word[:3] + "</b>" + word[3:]
-		}
-	}
-
-	return strings.Join(words, "")
+func formatLetter(text string) string {
+    newLetter := []string{ text }
+	return strings.Join(newLetter, "")
 }
+
+// accepts prev and curr letters, checks on the horizontal diff to determine a word
+func findWords(previous string, current string) string {
+
+    fmt.Println(previous, current)
+
+    return current 
+}
+
